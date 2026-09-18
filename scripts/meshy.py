@@ -2,6 +2,7 @@
 import argparse
 import base64
 import json
+import http.client
 import os
 from pathlib import Path
 import re
@@ -11,6 +12,7 @@ import urllib.parse
 import urllib.request
 from common import (WorkflowError, atomic_json, emit, inside, load, lock,
                     project_root, run, save, sha256, validate_task_id)
+from asset_validation import validate_asset
 
 ENDPOINT = 'https://api.meshy.ai/openapi/v1/multi-image-to-3d'
 
@@ -115,28 +117,24 @@ class AssetRedirect(urllib.request.HTTPRedirectHandler):
 
 def fetch_asset(url, target):
     asset_url(url)
+    if target.exists():
+        raise WorkflowError('Asset already exists; refusing replacement.')
     partial = target.with_suffix(target.suffix + '.partial')
     try:
         # This request never receives the API Authorization header.
         with urllib.request.build_opener(AssetRedirect).open(url, timeout=90) as response, partial.open('wb') as stream:
+            expected = response.headers.get('Content-Length')
             total = 0
             while block := response.read(1024 * 1024):
                 total += len(block)
                 if total > 1024 * 1024 * 1024:
                     raise WorkflowError('Download exceeds the local 1 GiB limit.')
                 stream.write(block)
-        if total < 84:
-            raise WorkflowError('Downloaded asset is unexpectedly small.')
-        with partial.open('rb') as stream:
-            head = stream.read(84)
-        if target.suffix == '.glb' and head[:4] != b'glTF':
-            raise WorkflowError('GLB signature mismatch.')
-        if target.suffix == '.stl':
-            count = int.from_bytes(head[80:84], 'little')
-            if total != 84 + count * 50 and not head.lstrip().lower().startswith(b'solid'):
-                raise WorkflowError('STL format/size mismatch.')
+        if expected is not None and total != int(expected):
+            raise WorkflowError('Incomplete asset download; retry download, not generation.')
+        validate_asset(partial, target.suffix)
         os.replace(partial, target)
-    except (urllib.error.URLError, TimeoutError):
+    except (urllib.error.URLError, TimeoutError, http.client.HTTPException, ConnectionError):
         raise WorkflowError('Asset download failed; retry download, not generation.') from None
     finally:
         partial.unlink(missing_ok=True)
@@ -179,7 +177,7 @@ def watch(root, seconds, interval):
         state = refresh(root)
         if state != previous:
             emit(state); previous = state
-        if state['status'] in ('SUCCEEDED', 'FAILED', 'CANCELED', 'EXPIRED'):
+        if state['status'] not in ('PENDING', 'IN_PROGRESS'):
             return
         remaining = deadline - time.monotonic()
         if remaining <= 0:

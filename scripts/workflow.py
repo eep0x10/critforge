@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 from common import (FOLDERS, STAGES, WorkflowError, atomic_json, emit, inside,
                     load, lock, project_root, run, save, sha256)
+from asset_validation import validate_asset
 
 
 def init(root):
@@ -55,7 +56,12 @@ def next_step(state):
         return 'generate-review-approve-images'
     if not state['task']:
         return 'submit-or-recover-existing-task'
-    if state['task'].get('status') != 'SUCCEEDED':
+    status = state['task'].get('status')
+    if status in ('FAILED', 'EXPIRED', 'CANCELED', 'CANCELLED'):
+        return 'review-terminal-failure-before-authorizing-new-generation'
+    if status not in ('PENDING', 'IN_PROGRESS', 'SUCCEEDED'):
+        return 'inspect-unknown-task-status'
+    if status != 'SUCCEEDED':
         return 'watch-existing-task'
     if 'original.stl' not in state['artifacts']:
         return 'download'
@@ -69,12 +75,28 @@ def report(root, state):
     if state['slicing'] == 'full':
         expected = list(STAGES)
     pending = []
+    required = {'final-stl': ('.stl',)}
+    if state['slicing'] == 'full':
+        required.update({'final-project': ('.ctp', '.chitubox'), 'final-slice': ('.ctb',)})
+    for name, extensions in required.items():
+        item = state['artifacts'].get(name)
+        if not item:
+            pending.append('missing:' + name)
+            continue
+        path = inside(root, item['path'])
+        if path.suffix.lower() not in extensions or not path.is_file() or path.stat().st_size == 0:
+            pending.append('invalid:' + name)
+        elif name == 'final-stl':
+            try:
+                validate_asset(path)
+            except WorkflowError:
+                pending.append('invalid:' + name)
     lines = ['# Project review', '', f"Slicing choice: {state['slicing']}", '',
              'This evidence ledger is not an automatic printability certificate.', '']
     for name in expected:
         check = state['checks'].get(name, {})
         status = check.get('status', 'pending')
-        valid = status in ('passed', 'not-applicable')
+        valid = status == 'passed' or (status == 'not-applicable' and name in ('hollow', 'drill'))
         evidence = check.get('evidence')
         if evidence:
             path = inside(root, evidence['path'])
@@ -87,6 +109,14 @@ def report(root, state):
                for k, digest in check.get('artifact_hashes', {}).items()):
             valid = False
             status = 'stale-artifact-set'
+        bound = ('final-stl',) if name in ('visual', 'mesh') else ()
+        if name in ('slice-review', 'reopen'):
+            bound = tuple(required)
+        if any(not state['artifacts'].get(k) or
+               check.get('artifact_hashes', {}).get(k) != state['artifacts'][k]['sha256']
+               for k in bound):
+            valid = False
+            status = 'final-artifact-not-reviewed'
         if not valid:
             pending.append(name)
         lines.append(f"- {name}: {status}. {check.get('note', '')}")
@@ -103,6 +133,7 @@ def report(root, state):
                   '', 'Physical printing is not performed by this workflow.', ''])
     (root / '00-documentacao/report.md').write_text('\n'.join(lines), encoding='utf-8')
     return {'report': '00-documentacao/report.md', 'pending': pending,
+            'delivery_ready': not pending,
             'automatic_print_certification': False}
 
 

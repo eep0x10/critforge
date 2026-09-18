@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 from common import WorkflowError, atomic_json, emit, run, sha256
+from asset_validation import validate_asset
 
 VERSION = 1
 
@@ -22,6 +23,8 @@ def read_mesh(path):
     np, trimesh = dependencies()
     if Path(path).suffix.lower() not in ('.stl', '.ply'):
         raise WorkflowError('Use STL or PLY with known orientation and units.')
+    if Path(path).suffix.lower() == '.stl':
+        validate_asset(path)
     mesh = trimesh.load_mesh(path, process=True)
     if not isinstance(mesh, trimesh.Trimesh) or len(mesh.faces) == 0:
         raise WorkflowError('Expected a nonempty triangle mesh.')
@@ -108,6 +111,48 @@ def scale(source, target, height_mm):
     return result
 
 
+def compare(before, after, out, dimension_tolerance=2.0, volume_tolerance=5.0):
+    before, after, out = Path(before), Path(after), Path(out)
+    if out.resolve() in (before.resolve(), after.resolve()):
+        raise WorkflowError('Comparison must not overwrite a mesh.')
+    if any(not math.isfinite(v) or v < 0 for v in (dimension_tolerance, volume_tolerance)):
+        raise WorkflowError('Comparison tolerances must be finite and nonnegative.')
+    import tempfile
+    with tempfile.TemporaryDirectory() as temp:
+        a = inspect(before, Path(temp) / 'before.json')['summary']
+        b = inspect(after, Path(temp) / 'after.json')['summary']
+    delta = [y - x for x, y in zip(a['dimensions_units'], b['dimensions_units'])]
+    percent = [100 * (y - x) / x if x else None
+               for x, y in zip(a['dimensions_units'], b['dimensions_units'])]
+    reliable_volume = all(s['watertight'] and s['winding_consistent'] and
+                          s['signed_volume_units3'] > 0 for s in (a, b))
+    volume_delta = (100 * (b['signed_volume_units3'] / a['signed_volume_units3'] - 1)
+                    if reliable_volume else None)
+    warnings = []
+    for flag in ('watertight', 'winding_consistent'):
+        if not b[flag]:
+            warnings.append(('regression:' if a[flag] else 'unresolved:') + flag)
+    if a['components'] != b['components']:
+        warnings.append('components-changed-review-small-details')
+    if any(p is None or abs(p) > dimension_tolerance for p in percent):
+        warnings.append('dimensions-changed-beyond-tolerance')
+    if not reliable_volume:
+        warnings.append('volume-comparison-unreliable')
+    elif abs(volume_delta) > volume_tolerance:
+        warnings.append('volume-changed-beyond-tolerance')
+    result = {'before_sha256': sha256(before), 'after_sha256': sha256(after),
+              'before': a, 'after': b, 'dimension_delta_units': delta,
+              'dimension_delta_percent': percent, 'volume_delta_percent': volume_delta,
+              'thresholds_percent': {'dimensions': dimension_tolerance, 'volume': volume_tolerance},
+              'warnings': warnings, 'visual_review_required': True,
+              'repair_accepted_automatically': False,
+              'assumptions': ['same units', 'same orientation', 'no intentional rescaling'],
+              'not_checked': ['wall_thickness', 'self_intersections', 'artistic_fidelity']}
+    atomic_json(out, result)
+    return {k: result[k] for k in ('warnings', 'dimension_delta_percent', 'volume_delta_percent',
+                                  'visual_review_required', 'repair_accepted_automatically')}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -116,9 +161,15 @@ def main():
     p.add_argument('--foot-band-mm', type=float, default=2)
     p = sub.add_parser('scale'); p.add_argument('input'); p.add_argument('output')
     p.add_argument('--height-mm', type=float, required=True)
+    p = sub.add_parser('compare'); p.add_argument('before'); p.add_argument('after')
+    p.add_argument('--out', required=True)
+    p.add_argument('--dimension-tolerance', type=float, default=2)
+    p.add_argument('--volume-tolerance', type=float, default=5)
     args = parser.parse_args()
     if args.command == 'inspect':
         emit(inspect(args.input, args.out, args.intersections, args.base_mm, args.foot_band_mm))
+    elif args.command == 'compare':
+        emit(compare(args.before, args.after, args.out, args.dimension_tolerance, args.volume_tolerance))
     else:
         emit(scale(args.input, args.output, args.height_mm))
 

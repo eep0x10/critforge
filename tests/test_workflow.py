@@ -131,7 +131,8 @@ class WorkflowTests(unittest.TestCase):
         state = common.load(self.root); state['slicing'] = 'manual'
         state['checks']['mesh'] = {'status': 'passed', 'note': 'review',
             'evidence': {'path': '06-verificacao/evidence.txt', 'sha256': common.sha256(evidence)},
-            'artifact_hashes': {'model': 'hash-one'}}
+            'artifact_hashes': {'model': 'hash-one', 'final-stl': 'hash-final'}}
+        state['artifacts']['final-stl'] = {'path': '06-verificacao/evidence.txt', 'sha256': 'hash-final'}
         state['artifacts']['model'] = {'path': '06-verificacao/evidence.txt', 'sha256': 'hash-one'}
         state['artifacts']['new'] = {'path': '06-verificacao/evidence.txt', 'sha256': common.sha256(evidence)}
         self.assertNotIn('mesh', workflow.report(self.root, state)['pending'])

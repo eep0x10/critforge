@@ -11,6 +11,10 @@ Skill em português para criar miniaturas de RPG/boardgame: **imagens revisadas 
 - Escala explícita, sem sobrescrever o original ou cortar peças automaticamente.
 - Hollow e Drill sempre avaliados; Auto Support Light continua sujeito à revisão.
 - Relatório de evidências e escolha manual para economizar chamadas e tokens.
+- Entrega bloqueada quando faltam arquivos finais ou revisões vinculadas a seus hashes.
+- Vistas reais via Blender, com cache e câmeras iguais para comparar revisões.
+- Comparação de reparos: fechamento, componentes, dimensões e volume confiável.
+- Validação estrutural STL/GLB e recuperação de downloads interrompidos.
 
 Não há medição de economia de tokens nem promessa de impressão perfeita. O controle do CHITUBOX depende de ferramenta de interface disponível; os scripts **não são um fatiador headless**. Não há impressão física automática.
 
@@ -31,6 +35,8 @@ A API lê `MESHY_API_KEY` exclusivamente do ambiente. Configure o segredo localm
 O perfil JSON de LD-006 / Standard V2 cinza contém valores **iniciais, não calibrados**, e não é um perfil nativo importável. Verifique resinagem, exposição e compatibilidade de firmware no seu equipamento. Base de 32 mm é uma convenção configurável deste fluxo; não define a altura da escultura.
 
 Testes sintéticos cobrem estado, repetição de tarefas, interrupções, downloads, escala, cache e privacidade. Não gastam créditos nem comprovam comportamento de uma versão específica do CHITUBOX. A integração usa a [API oficial do Meshy](https://docs.meshy.ai/en/api/multi-image-to-3d).
+
+Prévia requer Blender local (worker testado em 4.5) e Pillow. O teste offline/CI não inicia Blender; validar uma renderização real ao mudar o worker. Vistas assumem Z vertical e frente em -Y. O recorte automático superior precisa de conferência para representar o rosto.
 
 ## Privacidade e publicação
 

@@ -11,10 +11,14 @@ references/images.md
 references/mesh.md
 requirements-mesh.txt
 scripts/common.py
+scripts/asset_validation.py
 scripts/mesh.py
 scripts/meshy.py
 scripts/public_audit.py
+scripts/preview.py
+scripts/preview_blender.py
 scripts/validate.py
 scripts/workflow.py
 tests/test_mesh.py
+tests/test_delivery.py
 tests/test_workflow.py
