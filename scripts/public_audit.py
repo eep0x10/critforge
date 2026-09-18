@@ -1,5 +1,6 @@
 """Allowlist and secret/path checks. Findings never echo matched values."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -40,11 +41,42 @@ def git(root, *args):
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
 
 
+def reviewed_assets(root, allowed):
+    registry = root / 'PUBLIC_ASSETS.json'
+    if not registry.exists():
+        return {}
+    value = json.loads(registry.read_text(encoding='utf-8-sig'))
+    if not isinstance(value, dict):
+        raise ValueError('Invalid asset registry')
+    for name, hashes in value.items():
+        path = Path(name)
+        if (name not in allowed or not name.startswith('docs/assets/') or path.suffix != '.png'
+                or '..' in path.parts or not isinstance(hashes, list) or not hashes
+                or any(not isinstance(h, str) or not re.fullmatch('[0-9a-f]{64}', h) for h in hashes)):
+            raise ValueError('Invalid asset registry')
+    return value
+
+
+def file_findings(name, data, assets):
+    if name not in assets:
+        return findings(data)
+    # Only visually reviewed bytes are exempt from the text-only policy, including in Git history.
+    if (len(data) > 5 * 1024 * 1024 or not data.startswith(b'\x89PNG\r\n\x1a\n')
+            or hashlib.sha256(data).hexdigest() not in assets[name]):
+        return ['unapproved-public-asset']
+    return []
+
+
 def audit(root, with_git=False):
     root = Path(root).resolve()
     manifest = root / 'PUBLIC_FILES.txt'
     allowed = set(manifest.read_text(encoding='utf-8').splitlines())
     issues = []
+    try:
+        assets = reviewed_assets(root, allowed)
+    except (ValueError, OSError):
+        assets = {}
+        issues.append({'file': 'PUBLIC_ASSETS.json', 'reason': 'invalid-asset-registry'})
     if len(allowed) != len(manifest.read_text(encoding='utf-8').splitlines()):
         issues.append({'file': 'PUBLIC_FILES.txt', 'reason': 'duplicate-entry'})
     for name in sorted(allowed):
@@ -53,7 +85,7 @@ def audit(root, with_git=False):
             issues.append({'file': name, 'reason': 'unsafe-manifest-path'}); continue
         if not path.is_file():
             issues.append({'file': name, 'reason': 'missing-file'}); continue
-        issues.extend({'file': name, 'reason': reason} for reason in findings(path.read_bytes()))
+        issues.extend({'file': name, 'reason': reason} for reason in file_findings(name, path.read_bytes(), assets))
     ignored_parts = {'.git', '__pycache__', '.venv'}
     for path in root.rglob('*'):
         relative = path.relative_to(root)
@@ -84,7 +116,7 @@ def audit(root, with_git=False):
                 if kind == 'blob' and oid not in seen:
                     seen.add(oid); blobs += 1
                     issues.extend({'file': name, 'reason': reason}
-                                  for reason in findings(git(root, 'cat-file', 'blob', oid)))
+                                  for reason in file_findings(name, git(root, 'cat-file', 'blob', oid), assets))
     return {'allowed_files': len(allowed), 'history_blobs_checked': blobs,
             'passed': not issues, 'issues': issues}
 

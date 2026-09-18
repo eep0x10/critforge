@@ -1,9 +1,11 @@
 ---
 name: meshy-miniaturas
-description: Criar miniaturas de RPG e boardgame com imagens revisadas, Meshy, inspeção de STL e fatiamento opcional no CHITUBOX. Use para esse fluxo de miniaturas em resina, não para impressão FDM genérica.
+description: CritForge — criar miniaturas de RPG e boardgame com imagens revisadas, Meshy, inspeção de STL e fatiamento opcional no CHITUBOX. Use para esse fluxo de miniaturas em resina, não para impressão FDM genérica.
 ---
 
-# Miniaturas: imagem → Meshy → STL → fatiamento opcional
+# CritForge · Miniaturas: imagem → Meshy → STL → fatiamento opcional
+
+Nome público: **CritForge**. Identificador técnico e invocação: `meshy-miniaturas`. Para apresentação e instalação, ler [README.md](README.md); este arquivo concentra a operação do agente.
 
 ## Operação compacta
 

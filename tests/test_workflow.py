@@ -141,6 +141,33 @@ class WorkflowTests(unittest.TestCase):
 
 
 class HistoryAuditTests(unittest.TestCase):
+    def test_reviewed_asset_requires_exact_bytes_and_does_not_allow_other_binaries(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            name = 'docs/assets/banner.png'
+            (root / 'docs/assets').mkdir(parents=True)
+            data = b'\x89PNG\r\n\x1a\n' + b'synthetic-reviewed-bytes'
+            (root / name).write_bytes(data)
+            (root / 'PUBLIC_FILES.txt').write_text('PUBLIC_FILES.txt\nPUBLIC_ASSETS.json\n' + name + '\n')
+            (root / 'PUBLIC_ASSETS.json').write_text(json.dumps({name: [hashlib.sha256(data).hexdigest()]}))
+            self.assertTrue(public_audit.audit(root)['passed'])
+            (root / name).write_bytes(data + b'changed')
+            result = public_audit.audit(root)
+            self.assertFalse(result['passed'])
+            self.assertTrue(any(i['reason'] == 'unapproved-public-asset' for i in result['issues']))
+            self.assertIn('binary-or-oversized-file', public_audit.file_findings('private.stl', b'\0', {name: []}))
+
+    def test_asset_registry_cannot_exempt_private_models(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'PUBLIC_FILES.txt').write_text('PUBLIC_FILES.txt\nPUBLIC_ASSETS.json\nmodel.stl\n')
+            (root / 'model.stl').write_bytes(b'\0')
+            (root / 'PUBLIC_ASSETS.json').write_text(json.dumps({'model.stl': ['a' * 64]}))
+            result = public_audit.audit(root)
+            self.assertFalse(result['passed'])
+            self.assertTrue(any(i['reason'] == 'invalid-asset-registry' for i in result['issues']))
+
     def test_removed_secret_remains_detectable_in_history(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

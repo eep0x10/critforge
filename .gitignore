@@ -12,6 +12,7 @@ __pycache__/
 *.ctp
 *.ctb
 *.png
+!docs/assets/critforge-banner.png
 *.jpg
 *.jpeg
 *.log
