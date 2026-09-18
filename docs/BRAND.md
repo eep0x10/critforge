@@ -6,7 +6,7 @@
 
 **CritForge** une *crit*, referência ao acerto crítico nos jogos, e *forge*, a oficina onde uma ideia ganha forma. A assinatura **From character to tabletop** resume o percurso da referência à miniatura de jogo.
 
-O nome público é CritForge. O identificador técnico permanece `meshy-miniaturas`: pasta da skill, frontmatter, invocação e URL do repositório continuam compatíveis. Não há declaração de exclusividade ou registro de marca.
+O nome público é CritForge. O identificador técnico permanece `meshy-miniaturas`: pasta da skill, frontmatter e invocação continuam compatíveis. O repositório público é `eep0x10/critforge`. Não há declaração de exclusividade ou registro de marca.
 
 ## Direção de arte
 

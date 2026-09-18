@@ -8,7 +8,7 @@
 
 Uma skill para transformar ideias em miniaturas de RPG e boardgame — com referências aprovadas, geração 3D no Meshy, revisão da malha e fatiamento opcional no CHITUBOX.
 
-[![Validação](https://github.com/eep0x10/meshy-miniaturas/actions/workflows/validate.yml/badge.svg)](https://github.com/eep0x10/meshy-miniaturas/actions/workflows/validate.yml)
+[![Validação](https://github.com/eep0x10/critforge/actions/workflows/validate.yml/badge.svg)](https://github.com/eep0x10/critforge/actions/workflows/validate.yml)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](requirements-mesh.txt)
 [![Licença MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-C89B57?style=flat-square)](LICENSE)
 [![Docs EN](https://img.shields.io/badge/docs-English-637D71?style=flat-square)](README.en.md)
@@ -60,7 +60,7 @@ Com Git e Python 3.10+ disponíveis, clone a pasta no diretório de skills do Co
 **PowerShell**
 
 ```powershell
-git clone https://github.com/eep0x10/meshy-miniaturas.git "$HOME/.codex/skills/meshy-miniaturas"
+git clone https://github.com/eep0x10/critforge.git "$HOME/.codex/skills/meshy-miniaturas"
 Set-Location "$HOME/.codex/skills/meshy-miniaturas"
 python -m pip install -r requirements-mesh.txt
 python scripts/workflow.py doctor
@@ -70,7 +70,7 @@ python scripts/workflow.py doctor
 <summary><strong>macOS / Linux</strong></summary>
 
 ```bash
-git clone https://github.com/eep0x10/meshy-miniaturas.git ~/.codex/skills/meshy-miniaturas
+git clone https://github.com/eep0x10/critforge.git ~/.codex/skills/meshy-miniaturas
 cd ~/.codex/skills/meshy-miniaturas
 python3 -m venv .venv
 source .venv/bin/activate
@@ -197,6 +197,6 @@ Código, documentação, parâmetros de referência e o banner público aprovado
 
 **Feito para quem quer criar encontros memoráveis — e entender o que está entregando à impressora.**
 
-[Licença MIT](LICENSE) · [Reportar problema](https://github.com/eep0x10/meshy-miniaturas/issues) · [Contribuir](CONTRIBUTING.md)
+[Licença MIT](LICENSE) · [Reportar problema](https://github.com/eep0x10/critforge/issues) · [Contribuir](CONTRIBUTING.md)
 
 Projeto independente, sem afiliação com Meshy, CHITUBOX ou Creality. A licença do código não concede direitos sobre personagens ou modelos de terceiros.
