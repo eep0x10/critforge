@@ -10,7 +10,7 @@ Nome público: **CritForge**. Identificador técnico: `meshy-miniaturas`.
 ## Padrões
 
 - Modelo de execução preferido: `gpt-5.6-luna`, esforço `medium`. Usar scripts para operações determinísticas e carregar apenas a referência necessária. Não trocar automaticamente para modelo maior. A skill não altera o modelo da conversa: no desktop selecionar esse modelo; na CLI usar `codex --model gpt-5.6-luna --config model_reasoning_effort='"medium"'`. Uma preferência textual não comprova que o host aplicou o modelo.
-- Pasta padrão de saída: `C:\Users\eep0x10\Downloads\CritForge\<projeto>`. Criar cada projeto novo nessa pasta e manter ali imagens, STL original, STL corrigido e evidências. Nunca usar o repositório público como destino de modelos privados.
+- Pasta padrão de entrega: `C:\Users\eep0x10\Downloads\CritForge\<projeto>`. Essa pasta de entrega deve conter somente o STL final; imagens, STL original, relatórios e evidências ficam na pasta privada de trabalho fora de Downloads. Nunca usar o repositório público como destino de modelos privados.
 
 - Personagem sem base ou terreno integrado, dimensionado para uma base separada de 32 mm.
 - Monstros usam múltiplos de células de 32 mm, como 2×2 ou 4×2.
