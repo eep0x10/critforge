@@ -7,7 +7,7 @@ from pathlib import Path
 from common import WorkflowError, atomic_json, emit, run, sha256
 from asset_validation import validate_asset
 
-VERSION = 1
+VERSION = 2
 
 
 def dependencies():
@@ -33,7 +33,7 @@ def read_mesh(path):
     return mesh
 
 
-def inspect(path, out, intersections=False, base_mm=None, foot_band_mm=2):
+def inspect(path, out, intersections=False, base_mm=None, foot_band_mm=2, units=None):
     path, out = Path(path), Path(out)
     if path.resolve() == out.resolve():
         raise WorkflowError('Report must not overwrite the input mesh.')
@@ -41,6 +41,8 @@ def inspect(path, out, intersections=False, base_mm=None, foot_band_mm=2):
         raise WorkflowError('Base diameter must be positive.')
     if not math.isfinite(foot_band_mm) or foot_band_mm <= 0:
         raise WorkflowError('Foot band must be positive.')
+    if units not in (None, 'mm'):
+        raise WorkflowError('Supported confirmed unit is mm.')
     np, trimesh = dependencies()
     versions = {'trimesh': trimesh.__version__, 'numpy': np.__version__}
     if intersections:
@@ -50,7 +52,8 @@ def inspect(path, out, intersections=False, base_mm=None, foot_band_mm=2):
         except ImportError:
             raise WorkflowError('Install optional pymeshlab to check intersections.') from None
     key = {'sha256': sha256(path), 'checker': VERSION, 'versions': versions,
-           'intersections': intersections, 'base_mm': base_mm, 'foot_band_mm': foot_band_mm}
+           'intersections': intersections, 'base_mm': base_mm, 'foot_band_mm': foot_band_mm,
+           'units': units}
     if out.exists():
         old = json.loads(out.read_text(encoding='utf-8'))
         if old.get('cache_key') == key:
@@ -63,8 +66,10 @@ def inspect(path, out, intersections=False, base_mm=None, foot_band_mm=2):
                'watertight': bool(mesh.is_watertight),
                'winding_consistent': bool(mesh.is_winding_consistent),
                'components': len(counts), 'dimensions_units': mesh.extents.tolist(),
-               'signed_volume_units3': float(mesh.volume), 'units_confirmed': False,
+               'signed_volume_units3': float(mesh.volume), 'units_confirmed': units == 'mm',
                'self_intersecting_faces': None}
+    if units == 'mm':
+        summary['dimensions_mm'] = list(summary['dimensions_units'])
     if intersections:
         ms = pymeshlab.MeshSet(); ms.load_new_mesh(str(path))
         ms.compute_selection_by_self_intersections_per_face()
@@ -159,6 +164,7 @@ def main():
     p = sub.add_parser('inspect'); p.add_argument('input'); p.add_argument('--out', required=True)
     p.add_argument('--intersections', action='store_true'); p.add_argument('--base-mm', type=float)
     p.add_argument('--foot-band-mm', type=float, default=2)
+    p.add_argument('--units', choices=('mm',))
     p = sub.add_parser('scale'); p.add_argument('input'); p.add_argument('output')
     p.add_argument('--height-mm', type=float, required=True)
     p = sub.add_parser('compare'); p.add_argument('before'); p.add_argument('after')
@@ -167,7 +173,8 @@ def main():
     p.add_argument('--volume-tolerance', type=float, default=5)
     args = parser.parse_args()
     if args.command == 'inspect':
-        emit(inspect(args.input, args.out, args.intersections, args.base_mm, args.foot_band_mm))
+        emit(inspect(args.input, args.out, args.intersections, args.base_mm, args.foot_band_mm,
+                     args.units))
     elif args.command == 'compare':
         emit(compare(args.before, args.after, args.out, args.dimension_tolerance, args.volume_tolerance))
     else:

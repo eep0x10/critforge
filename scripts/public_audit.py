@@ -71,6 +71,10 @@ def audit(root, with_git=False):
     root = Path(root).resolve()
     manifest = root / 'PUBLIC_FILES.txt'
     allowed = set(manifest.read_text(encoding='utf-8').splitlines())
+    retired_manifest = root / 'PUBLIC_RETIRED_FILES.txt'
+    retired_lines = retired_manifest.read_text(encoding='utf-8').splitlines() if retired_manifest.is_file() else []
+    retired = set(retired_lines)
+    history_allowed = allowed | retired
     issues = []
     try:
         assets = reviewed_assets(root, allowed)
@@ -79,6 +83,9 @@ def audit(root, with_git=False):
         issues.append({'file': 'PUBLIC_ASSETS.json', 'reason': 'invalid-asset-registry'})
     if len(allowed) != len(manifest.read_text(encoding='utf-8').splitlines()):
         issues.append({'file': 'PUBLIC_FILES.txt', 'reason': 'duplicate-entry'})
+    if ('' in retired or len(retired) != len(retired_lines)
+            or any(Path(name).is_absolute() or '..' in Path(name).parts for name in retired)):
+        issues.append({'file': 'PUBLIC_RETIRED_FILES.txt', 'reason': 'invalid-retired-entry'})
     for name in sorted(allowed):
         path = root / name
         if path.is_symlink() or root not in path.resolve().parents:
@@ -111,7 +118,7 @@ def audit(root, with_git=False):
                 meta, raw_name = entry.split(b'\t', 1)
                 mode, kind, oid = meta.decode().split()
                 name = raw_name.decode()
-                if name not in allowed or mode not in ('100644', '100755') or kind != 'blob':
+                if name not in history_allowed or mode not in ('100644', '100755') or kind != 'blob':
                     issues.append({'file': name, 'reason': 'unsafe-history-entry'})
                 if kind == 'blob' and oid not in seen:
                     seen.add(oid); blobs += 1

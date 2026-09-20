@@ -1,0 +1,2 @@
+assets/ld006-standard-v2-gray.initial.json
+references/chitubox.md

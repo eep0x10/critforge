@@ -12,6 +12,14 @@ def fail():
 
 def validate_stl(path):
     size = path.stat().st_size
+    low = [math.inf, math.inf, math.inf]
+    high = [-math.inf, -math.inf, -math.inf]
+
+    def include(vertex):
+        for index, value in enumerate(vertex):
+            low[index] = min(low[index], value)
+            high[index] = max(high[index], value)
+
     with path.open('rb') as stream:
         header = stream.read(84)
         if len(header) == 84:
@@ -21,7 +29,11 @@ def validate_stl(path):
                     for triangle in struct.iter_unpack('<12fH', block):
                         if not all(math.isfinite(x) for x in triangle[:12]):
                             fail()
-                return {'format': 'binary-stl', 'triangles': count}
+                        for offset in (3, 6, 9):
+                            include(triangle[offset:offset + 3])
+                return {'format': 'binary-stl', 'triangles': count,
+                        'bounds_units': [low, high],
+                        'dimensions_units': [high[i] - low[i] for i in range(3)]}
     # Parse ASCII grammar instead of accepting any file beginning with "solid".
     with path.open('r', encoding='ascii') as stream:
         def line():
@@ -34,8 +46,10 @@ def validate_stl(path):
         def vector(tokens, prefix):
             if tokens[:len(prefix)] != prefix or len(tokens) != len(prefix) + 3:
                 fail()
-            if not all(math.isfinite(float(v)) for v in tokens[len(prefix):]):
+            values = [float(v) for v in tokens[len(prefix):]]
+            if not all(math.isfinite(v) for v in values):
                 fail()
+            return values
         first = line()
         if not first or first[0] != 'solid':
             fail()
@@ -45,12 +59,14 @@ def validate_stl(path):
             if tokens and tokens[0] == 'endsolid':
                 if not count or line():
                     fail()
-                return {'format': 'ascii-stl', 'triangles': count}
+                return {'format': 'ascii-stl', 'triangles': count,
+                        'bounds_units': [low, high],
+                        'dimensions_units': [high[i] - low[i] for i in range(3)]}
             vector(tokens, ['facet', 'normal'])
             if line() != ['outer', 'loop']:
                 fail()
             for _ in range(3):
-                vector(line(), ['vertex'])
+                include(vector(line(), ['vertex']))
             if line() != ['endloop'] or line() != ['endfacet']:
                 fail()
             count += 1

@@ -6,12 +6,11 @@ README.md
 README.en.md
 CONTRIBUTING.md
 PUBLIC_ASSETS.json
+PUBLIC_RETIRED_FILES.txt
 docs/QUICKSTART.md
 docs/BRAND.md
 docs/assets/critforge-banner.png
 SKILL.md
-assets/ld006-standard-v2-gray.initial.json
-references/chitubox.md
 references/commands.md
 references/images.md
 references/mesh.md

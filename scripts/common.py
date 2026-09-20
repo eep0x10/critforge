@@ -9,10 +9,8 @@ import tempfile
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 FOLDERS = ('00-documentacao', '01-imagens', '02-meshy-original',
-           '03-modelo-corrigido', '04-chitubox', '05-impressao',
-           '06-verificacao', '90-processamento')
-STAGES = ('visual', 'mesh', 'orient', 'hollow', 'drill', 'support',
-          'layout', 'slice-review', 'reopen')
+           '03-modelo-corrigido', '06-verificacao', '90-processamento')
+STAGES = ('visual', 'mesh')
 
 
 class WorkflowError(Exception):

@@ -9,7 +9,7 @@ Contribuições úteis tornam a criação de miniaturas mais verificável, recup
 1. Leia [SKILL.md](SKILL.md) e a referência da etapa afetada.
 2. Explique o comportamento atual, o resultado esperado e como reproduzir.
 3. Use modelos e respostas **sintéticos** nos testes. Nunca adicione arquivos reais de usuários.
-4. Preserve aprovações antes da geração paga e a escolha de fatiamento após o STL.
+4. Preserve aprovações antes da geração paga e a revisão do STL antes da entrega.
 5. Documente mudanças visíveis nos guias relevantes, incluindo o resumo em inglês.
 
 ## Validação local
@@ -21,9 +21,9 @@ python scripts/public_audit.py --git
 git diff --check
 ```
 
-O primeiro comando de validação executa a suíte offline e a auditoria do pacote. O segundo inclui commits, nomes e blobs do histórico. O CI repete os checks offline; ele não valida a interface do CHITUBOX nem executa o Blender.
+O primeiro comando de validação executa a suíte offline e a auditoria do pacote. O segundo inclui commits, nomes e blobs do histórico. O CI repete os checks offline; ele não executa o Blender nem chama a API Meshy.
 
-Ao modificar `preview_blender.py`, faça também uma renderização real de uma malha sintética e inspecione as imagens. Ao alterar comportamento do fatiador, descreva a versão usada e a verificação manual realizada. Não apresente testes simulados como evidência de impressão física.
+Ao modificar `preview_blender.py`, faça também uma renderização real de uma malha sintética e inspecione as imagens. Não apresente testes simulados como evidência de qualidade visual ou impressão física.
 
 ## Publicação sem dados privados
 

@@ -1,6 +1,7 @@
 """Project shortcuts and evidence ledger; records decisions, does not grant consent."""
 import argparse
 import importlib.util
+import math
 from pathlib import Path
 import shutil
 from common import (FOLDERS, STAGES, WorkflowError, atomic_json, emit, inside,
@@ -15,8 +16,8 @@ def init(root):
             return load(root)
         for folder in FOLDERS:
             (root / folder).mkdir(exist_ok=True)
-        state = {'schema': 1, 'images': {}, 'task': None, 'slicing': 'undecided',
-                 'checks': {}, 'artifacts': {}}
+        state = {'schema': 1, 'images': {}, 'task': None, 'checks': {}, 'artifacts': {},
+                 'limits': {'max_height_mm': 45.0, 'base_mm': 32.0}}
         save(root, state)
         return state
 
@@ -65,19 +66,13 @@ def next_step(state):
         return 'watch-existing-task'
     if 'original.stl' not in state['artifacts']:
         return 'download'
-    if state['slicing'] == 'undecided':
-        return 'ask-manual-or-full-slicing'
-    return 'review-and-deliver-stl' if state['slicing'] == 'manual' else 'review-mesh-then-chitubox'
+    return 'review-repair-scale-and-deliver-stl'
 
 
 def report(root, state):
-    expected = ['visual', 'mesh']
-    if state['slicing'] == 'full':
-        expected = list(STAGES)
+    expected = list(STAGES)
     pending = []
     required = {'final-stl': ('.stl',)}
-    if state['slicing'] == 'full':
-        required.update({'final-project': ('.ctp', '.chitubox'), 'final-slice': ('.ctb',)})
     for name, extensions in required.items():
         item = state['artifacts'].get(name)
         if not item:
@@ -88,15 +83,18 @@ def report(root, state):
             pending.append('invalid:' + name)
         elif name == 'final-stl':
             try:
-                validate_asset(path)
+                details = validate_asset(path)
+                maximum = state.get('limits', {}).get('max_height_mm', 45.0)
+                if details['dimensions_units'][2] > maximum:
+                    pending.append(f'height-over-{maximum:g}mm:final-stl')
             except WorkflowError:
                 pending.append('invalid:' + name)
-    lines = ['# Project review', '', f"Slicing choice: {state['slicing']}", '',
-             'This evidence ledger is not an automatic printability certificate.', '']
+    lines = ['# Project review', '',
+             'This evidence ledger covers the reviewed STL, not slicing or a physical print.', '']
     for name in expected:
         check = state['checks'].get(name, {})
         status = check.get('status', 'pending')
-        valid = status == 'passed' or (status == 'not-applicable' and name in ('hollow', 'drill'))
+        valid = status == 'passed'
         evidence = check.get('evidence')
         if evidence:
             path = inside(root, evidence['path'])
@@ -109,9 +107,7 @@ def report(root, state):
                for k, digest in check.get('artifact_hashes', {}).items()):
             valid = False
             status = 'stale-artifact-set'
-        bound = ('final-stl',) if name in ('visual', 'mesh') else ()
-        if name in ('slice-review', 'reopen'):
-            bound = tuple(required)
+        bound = ('final-stl',)
         if any(not state['artifacts'].get(k) or
                check.get('artifact_hashes', {}).get(k) != state['artifacts'][k]['sha256']
                for k in bound):
@@ -120,8 +116,6 @@ def report(root, state):
         if not valid:
             pending.append(name)
         lines.append(f"- {name}: {status}. {check.get('note', '')}")
-    if state['slicing'] == 'undecided':
-        pending.append('slicing-choice')
     lines.extend(['', '## Artifacts', ''])
     for name, item in state['artifacts'].items():
         path = inside(root, item['path'])
@@ -130,7 +124,7 @@ def report(root, state):
         if not valid:
             pending.append('artifact:' + name)
     lines.extend(['', 'Pending: ' + (', '.join(pending) or 'none in the recorded checks'),
-                  '', 'Physical printing is not performed by this workflow.', ''])
+                  '', 'Slicing and physical printing are outside this workflow.', ''])
     (root / '00-documentacao/report.md').write_text('\n'.join(lines), encoding='utf-8')
     return {'report': '00-documentacao/report.md', 'pending': pending,
             'delivery_ready': not pending,
@@ -147,8 +141,6 @@ def main():
     p.add_argument('project')
     for role in ('front', 'back', 'face'):
         p.add_argument('--' + role, required=True)
-    p = sub.add_parser('slicing', help='Record the user choice; do not infer consent')
-    p.add_argument('project'); p.add_argument('choice', choices=('manual', 'full'))
     p = sub.add_parser('record')
     p.add_argument('project'); p.add_argument('stage', choices=STAGES)
     p.add_argument('status', choices=('passed', 'not-applicable', 'failed', 'pending'))
@@ -156,6 +148,9 @@ def main():
     p.add_argument('--evidence', help='Project-relative file with review evidence')
     p = sub.add_parser('artifact', help='Register a produced artifact and its current hash')
     p.add_argument('project'); p.add_argument('name'); p.add_argument('path', help='Project-relative file')
+    p = sub.add_parser('limits', help='Set explicit project scale limits')
+    p.add_argument('project'); p.add_argument('--max-height-mm', type=float, required=True)
+    p.add_argument('--base-mm', type=float, required=True)
     args = parser.parse_args()
     if args.command == 'doctor':
         emit({'optional_modules': {n: importlib.util.find_spec(n) is not None
@@ -170,15 +165,9 @@ def main():
         emit(approve(root, {r: getattr(args, r) for r in ('front', 'back', 'face')})); return
     with lock(root):
         state = load(root)
-        if args.command == 'slicing':
-            if 'original.stl' not in state['artifacts']:
-                raise WorkflowError('Download the STL before recording the slicing choice.')
-            state['slicing'] = args.choice; save(root, state)
-        elif args.command == 'record':
-            if args.stage not in ('visual', 'mesh') and state['slicing'] != 'full':
-                raise WorkflowError('Slicer stages require the full slicing choice.')
-            if args.status == 'not-applicable' and args.stage not in ('hollow', 'drill'):
-                raise WorkflowError('Only Hollow/Drill may be marked not-applicable.')
+        if args.command == 'record':
+            if args.status == 'not-applicable':
+                raise WorkflowError('Visual and mesh checks must pass or fail explicitly.')
             if args.status in ('passed', 'not-applicable') and not args.evidence:
                 raise WorkflowError('Completed checks require an evidence file.')
             item = {'status': args.status, 'note': args.note,
@@ -187,6 +176,12 @@ def main():
                 path = inside(root, args.evidence)
                 item['evidence'] = {'path': path.relative_to(root).as_posix(), 'sha256': sha256(path)}
             state['checks'][args.stage] = item; save(root, state)
+        elif args.command == 'limits':
+            if any(not math.isfinite(value) or value <= 0
+                   for value in (args.max_height_mm, args.base_mm)):
+                raise WorkflowError('Scale limits must be positive finite millimeters.')
+            state['limits'] = {'max_height_mm': args.max_height_mm, 'base_mm': args.base_mm}
+            save(root, state)
         elif args.command == 'artifact':
             if args.name in ('original.stl', 'original.glb'):
                 raise WorkflowError('Original asset records are managed by the Meshy download command.')
@@ -197,7 +192,9 @@ def main():
         if args.command == 'report':
             emit(report(root, state))
         else:
-            emit({'task': state['task'], 'slicing': state['slicing'], 'next': next_step(state),
+            emit({'task': state['task'], 'limits': state.get('limits', {'max_height_mm': 45.0,
+                                                                        'base_mm': 32.0}),
+                  'next': next_step(state),
                   'checks': {k: v['status'] for k, v in state['checks'].items()}})
 
 

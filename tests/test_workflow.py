@@ -31,8 +31,8 @@ class WorkflowTests(unittest.TestCase):
         workflow.approve(self.root, images)
 
     def test_init_preserves_state(self):
-        state = common.load(self.root); state['slicing'] = 'manual'; common.save(self.root, state)
-        self.assertEqual(workflow.init(self.root)['slicing'], 'manual')
+        state = common.load(self.root); state['custom'] = 'preserved'; common.save(self.root, state)
+        self.assertEqual(workflow.init(self.root)['custom'], 'preserved')
 
     def test_path_escape_rejected(self):
         with self.assertRaises(common.WorkflowError):
@@ -50,6 +50,26 @@ class WorkflowTests(unittest.TestCase):
         self.approve(); api.return_value = {'result': 'synthetic-task-0001'}
         meshy.submit(self.root); result = meshy.submit(self.root)
         self.assertTrue(result['reused_existing_task']); self.assertEqual(api.call_count, 1)
+
+    @patch.dict(os.environ, {'MESHY_API_KEY': 'synthetic-key'})
+    @patch('meshy.api')
+    def test_4k_and_multiview_requests_use_supported_modes(self, api):
+        self.approve(); api.return_value = {'result': 'synthetic-task-0001'}
+        meshy.submit(self.root, 'image-4k')
+        body = api.call_args.kwargs['body']
+        self.assertEqual(api.call_args.kwargs['mode'], 'image-4k')
+        self.assertEqual(body['geometry_resolution'], '4k')
+        self.assertIn('image_url', body); self.assertNotIn('image_urls', body)
+
+        other = self.root / 'revision'; workflow.init(other)
+        images = {role: self.root / (role + '.png') for role in ('front', 'back', 'face')}
+        workflow.approve(other, images)
+        api.return_value = {'result': 'synthetic-task-0002'}
+        meshy.submit(other, 'multi-image-2k')
+        body = api.call_args.kwargs['body']
+        self.assertEqual(api.call_args.kwargs['mode'], 'multi-image-2k')
+        self.assertEqual(body['geometry_resolution'], '2k')
+        self.assertEqual(len(body['image_urls']), 3)
 
     @patch.dict(os.environ, {'MESHY_API_KEY': 'synthetic-key'})
     @patch('meshy.api', side_effect=common.WorkflowError('Network result uncertain.'))
@@ -83,7 +103,7 @@ class WorkflowTests(unittest.TestCase):
 
     @patch('meshy.api')
     @patch('meshy.fetch_asset')
-    def test_download_resume_and_slicing_gate(self, fetch, api):
+    def test_download_resume_enters_review(self, fetch, api):
         state = common.load(self.root); state['task'] = {'id': 'synthetic-task-0001'}; common.save(self.root, state)
         api.return_value = {'status': 'SUCCEEDED', 'consumed_credits': 20,
                             'model_urls': {'stl': 'https://assets.meshy.ai/model.stl',
@@ -91,7 +111,7 @@ class WorkflowTests(unittest.TestCase):
         fetch.side_effect = lambda url, path: path.write_bytes(b'synthetic-model')
         meshy.download(self.root); meshy.download(self.root)
         self.assertEqual(fetch.call_count, 2)
-        self.assertEqual(workflow.next_step(common.load(self.root)), 'ask-manual-or-full-slicing')
+        self.assertEqual(workflow.next_step(common.load(self.root)), 'review-repair-scale-and-deliver-stl')
 
     def test_asset_domain_restrictions(self):
         for url in ('http://assets.meshy.ai/a', 'https://localhost/a',
@@ -102,7 +122,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_stale_evidence_returns_pending(self):
         path = self.root / '06-verificacao/evidence.txt'; path.write_text('before')
-        state = common.load(self.root); state['slicing'] = 'manual'
+        state = common.load(self.root)
         state['checks']['mesh'] = {'status': 'passed', 'note': 'review',
                                   'evidence': {'path': '06-verificacao/evidence.txt', 'sha256': common.sha256(path)}}
         path.write_text('after')
@@ -119,16 +139,9 @@ class WorkflowTests(unittest.TestCase):
         (self.root / 'PUBLIC_FILES.txt').write_text('PUBLIC_FILES.txt\n')
         self.assertFalse(public_audit.audit(self.root)['passed'])
 
-    def test_slicer_stage_blocked_in_manual_mode(self):
-        state = common.load(self.root); state['slicing'] = 'manual'; common.save(self.root, state)
-        args = ['workflow.py', 'record', str(self.root), 'support', 'passed', '--note', 'test']
-        with patch.object(sys, 'argv', args), self.assertRaises(common.WorkflowError):
-            workflow.main()
-        self.assertEqual(common.load(self.root)['checks'], {})
-
     def test_new_artifact_does_not_invalidate_but_replacement_does(self):
         evidence = self.root / '06-verificacao/evidence.txt'; evidence.write_text('review')
-        state = common.load(self.root); state['slicing'] = 'manual'
+        state = common.load(self.root)
         state['checks']['mesh'] = {'status': 'passed', 'note': 'review',
             'evidence': {'path': '06-verificacao/evidence.txt', 'sha256': common.sha256(evidence)},
             'artifact_hashes': {'model': 'hash-one', 'final-stl': 'hash-final'}}
@@ -141,6 +154,13 @@ class WorkflowTests(unittest.TestCase):
 
 
 class HistoryAuditTests(unittest.TestCase):
+    def test_retired_files_are_allowed_only_in_history(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'PUBLIC_FILES.txt').write_text('PUBLIC_FILES.txt\nPUBLIC_RETIRED_FILES.txt\n')
+            (root / 'PUBLIC_RETIRED_FILES.txt').write_text('removed.txt\n')
+            self.assertTrue(public_audit.audit(root)['passed'])
+
     def test_reviewed_asset_requires_exact_bytes_and_does_not_allow_other_binaries(self):
         import hashlib
         with tempfile.TemporaryDirectory() as temp:

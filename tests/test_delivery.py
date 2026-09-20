@@ -26,17 +26,14 @@ class DeliveryTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name); workflow.init(self.root)
 
-    def state(self, full=False):
-        state = common.load(self.root); state['slicing'] = 'full' if full else 'manual'
+    def state(self):
+        state = common.load(self.root)
         files = {'final-stl': ('model.stl', triangle())}
-        if full:
-            # Opaque slicer fixtures test evidence binding, not actual slicer compatibility.
-            files.update({'final-project': ('project.ctp', b'project'), 'final-slice': ('print.ctb', b'slice')})
         for name, (filename, data) in files.items():
             path = self.root / filename; path.write_bytes(data)
             state['artifacts'][name] = {'path': filename, 'sha256': common.sha256(path)}
         evidence = self.root / 'review.txt'; evidence.write_text('Synthetic review evidence')
-        for stage in common.STAGES if full else ('visual', 'mesh'):
+        for stage in common.STAGES:
             state['checks'][stage] = {'status': 'passed', 'note': 'test',
                 'evidence': {'path': 'review.txt', 'sha256': common.sha256(evidence)},
                 'artifact_hashes': {k: v['sha256'] for k, v in state['artifacts'].items()}}
@@ -49,27 +46,19 @@ class DeliveryTests(unittest.TestCase):
         result = workflow.report(self.root, state)
         self.assertFalse(result['delivery_ready']); self.assertIn('missing:final-stl', result['pending'])
 
-    def test_full_requires_all_deliverables(self):
-        state = self.state(True)
-        self.assertTrue(workflow.report(self.root, state)['delivery_ready'])
-        for name in ('final-project', 'final-slice'):
-            item = state['artifacts'].pop(name)
-            self.assertIn('missing:' + name, workflow.report(self.root, state)['pending'])
-            state['artifacts'][name] = item
-
     def test_empty_corrupt_or_wrong_extension_not_deliverable(self):
         for content in (b'', b'solid corrupt'):
             state = self.state(); path = self.root / 'model.stl'; path.write_bytes(content)
             state['artifacts']['final-stl']['sha256'] = common.sha256(path)
             self.assertIn('invalid:final-stl', workflow.report(self.root, state)['pending'])
-        state = self.state(True)
-        state['artifacts']['final-slice']['path'] = 'project.ctp'
-        self.assertIn('invalid:final-slice', workflow.report(self.root, state)['pending'])
 
-    def test_final_added_after_review_requires_new_review(self):
-        state = self.state(True)
-        state['checks']['reopen']['artifact_hashes'].pop('final-slice')
-        self.assertIn('reopen', workflow.report(self.root, state)['pending'])
+    def test_height_over_45mm_blocks_delivery(self):
+        state = self.state()
+        path = self.root / 'model.stl'
+        path.write_bytes(b'fixture'.ljust(80, b' ') + struct.pack(
+            '<I12fH', 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 46, 0))
+        state['artifacts']['final-stl']['sha256'] = common.sha256(path)
+        self.assertIn('height-over-45mm:final-stl', workflow.report(self.root, state)['pending'])
 
     def test_terminal_and_unknown_tasks_do_not_watch(self):
         state = self.state()
@@ -82,7 +71,9 @@ class DeliveryTests(unittest.TestCase):
 
     def test_valid_binary_and_ascii_stl(self):
         path = self.root / 'model.stl'; path.write_bytes(triangle())
-        self.assertEqual(asset_validation.validate_asset(path)['triangles'], 1)
+        details = asset_validation.validate_asset(path)
+        self.assertEqual(details['triangles'], 1)
+        self.assertEqual(details['dimensions_units'], [1.0, 1.0, 0.0])
         path.write_text('solid test\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid test\n')
         self.assertEqual(asset_validation.validate_asset(path)['format'], 'ascii-stl')
 
