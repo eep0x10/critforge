@@ -1,6 +1,6 @@
 # Comandos, modos e recuperação
 
-Execute os scripts com Python 3.10+ e mantenha projetos fora da instalação da skill.
+Execute os scripts com Python 3.10+ e mantenha projetos fora da instalação da skill. Por padrão, use `C:\Users\eep0x10\Downloads\CritForge\<projeto>` como raiz privada de cada projeto; isso mantém os modelos e imagens organizados nos Downloads e separados do repositório público.
 
 ```sh
 python scripts/workflow.py doctor
