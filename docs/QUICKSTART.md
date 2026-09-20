@@ -32,7 +32,7 @@ Para instalar `pymeshlab`, se necessário:
 python -m pip install pymeshlab
 ```
 
-Use o mesmo interpretador/ambiente Python nas instalações e nos comandos. Em Windows, `py -3` pode ser usado no lugar de `python` quando esse for o comando disponível.
+Use o mesmo interpretador/ambiente Python nas instalações e nos comandos. No Windows, se criou `.venv` conforme o README, substitua `python` nos exemplos por `./.venv/Scripts/python.exe`; no shell POSIX com o ambiente ativado, mantenha `python`. Em Windows, `py -3` pode ser usado no lugar de `python` quando esse for o comando disponível.
 
 ## 2. Configure a chave de forma privada
 

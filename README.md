@@ -53,7 +53,7 @@ O fluxo completo segue **orientar → avaliar Hollow → avaliar Drill → Auto 
 
 ## Comece em poucos minutos
 
-### 1. Instale a skill
+### 1. Instale a skill em ambiente isolado
 
 Com Git e Python 3.10+ disponíveis, clone a pasta no diretório de skills do Codex:
 
@@ -62,8 +62,9 @@ Com Git e Python 3.10+ disponíveis, clone a pasta no diretório de skills do Co
 ```powershell
 git clone https://github.com/eep0x10/critforge.git "$HOME/.codex/skills/meshy-miniaturas"
 Set-Location "$HOME/.codex/skills/meshy-miniaturas"
-python -m pip install -r requirements-mesh.txt
-python scripts/workflow.py doctor
+python -m venv .venv
+./.venv/Scripts/python.exe -m pip install -r requirements-mesh.txt
+./.venv/Scripts/python.exe scripts/workflow.py doctor
 ```
 
 <details>
@@ -200,3 +201,16 @@ Código, documentação, parâmetros de referência e o banner público aprovado
 [Licença MIT](LICENSE) · [Reportar problema](https://github.com/eep0x10/critforge/issues) · [Contribuir](CONTRIBUTING.md)
 
 Projeto independente, sem afiliação com Meshy, CHITUBOX ou Creality. A licença do código não concede direitos sobre personagens ou modelos de terceiros.
+
+## Mapa técnico da oficina
+
+| Entrada | Responsabilidade | Leitura complementar |
+| :--- | :--- | :--- |
+| `scripts/workflow.py` | Inicialização, estado, decisões e relatório | [Comandos](references/commands.md) |
+| `scripts/meshy.py` | Submissão, consulta, recuperação e download | [Início rápido](docs/QUICKSTART.md) |
+| `scripts/mesh.py` | Inspeção, comparação e transformação da malha | [Malhas](references/mesh.md) |
+| `scripts/preview.py` | Vistas do modelo real com Blender | [Referências e imagens](references/images.md) |
+| `references/chitubox.md` | Procedimento de preparação no fatiador | [CHITUBOX](references/chitubox.md) |
+| `scripts/validate.py` | Testes offline e auditoria pública | [Contribuição](CONTRIBUTING.md) |
+
+O estado de um projeto é separado da instalação da skill. Um comando que registra aprovação ou evidência não substitui a decisão do usuário nem a inspeção do artefato. Não envie uma nova tarefa paga para resolver uma resposta incerta: recupere o identificador existente conforme o guia.

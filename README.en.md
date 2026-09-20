@@ -148,3 +148,9 @@ Publication uses a file allowlist and history scanning; binary brand assets requ
 [MIT license](LICENSE) · [Report an issue](https://github.com/eep0x10/critforge/issues) · [Contribute](CONTRIBUTING.md)
 
 Independent project, not affiliated with Meshy, CHITUBOX or Creality. The code license does not grant rights to third-party characters or models.
+
+## Implementation map
+
+The workflow CLI owns project state, decisions and reports; the Meshy client owns submissions, recovery and downloads; mesh utilities inspect and compare geometry; Blender previews provide evidence from the actual model. See the [command reference](references/commands.md) and [mesh guide](references/mesh.md). Keep output projects outside the skill installation and use the same Python environment for dependency installation and every command.
+
+On Windows, create an isolated environment with `python -m venv .venv`, install requirements with `./.venv/Scripts/python.exe -m pip install -r requirements-mesh.txt`, then run `./.venv/Scripts/python.exe scripts/workflow.py doctor`. Recorded approvals do not replace explicit user decisions; uncertain paid submissions must be recovered before resubmission.
