@@ -28,7 +28,7 @@ python scripts/workflow.py report PROJETO
 | `image-4k` | vista frontal | 4096³ | padrão para maior detalhe |
 | `multi-image-2k` | frente, verso e rosto | 2048³ | prioriza consistência multivista |
 
-O cliente usa Meshy 7.1, não gera textura nem remesh, pede STL/GLB e registra o modo no projeto. No modo 4K, verso e rosto não são enviados como geometria: permanecem como referências obrigatórias para a revisão visual.
+O cliente usa Meshy 7.1, ativa o aprimoramento de imagem para acompanhar o preset do site, não gera textura nem remesh, pede STL/GLB e registra o modo no projeto. No modo 4K, verso e rosto não são enviados como geometria: permanecem como referências obrigatórias para a revisão visual. `multi_view_thumbnails` não é enviado quando `auto_size` está desligado, pois a API documenta esse recurso apenas junto do dimensionamento automático.
 
 `MESHY_API_KEY` vem apenas do ambiente. Nunca passe o valor por argumento, grave em `.env` dentro da skill ou imprima o ambiente.
 

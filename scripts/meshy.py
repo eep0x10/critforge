@@ -70,8 +70,8 @@ def submit(root, mode='image-4k'):
             body = {'image_url': image_data(root, state['images']['front']),
                     'ai_model': 'meshy-7.1', 'geometry_resolution': '4k',
                     'should_texture': False, 'should_remesh': False,
-                    'image_enhancement': False, 'target_formats': ['stl', 'glb'],
-                    'multi_view_thumbnails': True, 'auto_size': False}
+                    'image_enhancement': True, 'target_formats': ['stl', 'glb'],
+                    'auto_size': False}
             generation = {'mode': mode, 'geometry_resolution': '4k',
                           'geometry_source': 'front', 'qa_views': ['back', 'face']}
         elif mode == 'multi-image-2k':
@@ -79,8 +79,8 @@ def submit(root, mode='image-4k'):
                                    for role in ('front', 'back', 'face')],
                     'ai_model': 'meshy-7.1', 'geometry_resolution': '2k',
                     'should_texture': False, 'should_remesh': False,
-                    'image_enhancement': False, 'target_formats': ['stl', 'glb'],
-                    'multi_view_thumbnails': True, 'auto_size': False}
+                    'image_enhancement': True, 'target_formats': ['stl', 'glb'],
+                    'auto_size': False}
             generation = {'mode': mode, 'geometry_resolution': '2k',
                           'geometry_source': 'front-back-face', 'qa_views': []}
         else:

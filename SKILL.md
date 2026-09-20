@@ -9,6 +9,8 @@ Nome público: **CritForge**. Identificador técnico: `meshy-miniaturas`.
 
 ## Padrões
 
+- Modelo de execução preferido: `gpt-5.6-luna`, esforço `medium`. Usar scripts para operações determinísticas e carregar apenas a referência necessária. Não trocar automaticamente para modelo maior. A skill não altera o modelo da conversa: no desktop selecionar esse modelo; na CLI usar `codex --model gpt-5.6-luna --config model_reasoning_effort='"medium"'`. Uma preferência textual não comprova que o host aplicou o modelo.
+
 - Personagem sem base ou terreno integrado, dimensionado para uma base separada de 32 mm.
 - Monstros usam múltiplos de células de 32 mm, como 2×2 ou 4×2.
 - Personagem humanoide comum: alvo de 38 mm de altura e máximo de 45 mm. Para monstros ou escala explicitamente diferente, registrar limites próprios com `workflow.py limits`.
